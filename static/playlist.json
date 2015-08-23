@@ -1,0 +1,12 @@
+{ 
+	"Classic 21": "http://classic21.ice.rtbf.be/classic21-128.mp3.m3u",
+	"RTBF La Première": "http://lapremiere.ice.rtbf.be/lapremiere-128.mp3.m3u",
+	"Pure FM": "http://purefm.ice.rtbf.be/purefm-128.mp3.m3u",
+	"RTBF VivaCité": "http://vivacitecharleroi.ice.rtbf.be/vivacharleroi-128.mp3.m3u",
+	"Bel RTL": "http://www.listenlive.eu/belrtl.m3u",
+	"Fun Radio": "http://broadcast.infomaniak.ch/funradiobe-high.mp3.m3u",
+	"Mint": "http://www.listenlive.eu/mint.m3u",
+	"Nostalgie": "http://nostalgiepremium.ice.infomaniak.ch/nostalgiepremium-128.mp3.m3u",
+	"NRJ": "http://broadcast.infomaniak.net/nrjbe-high.mp3.m3u",
+	"Radio Contact": "http://www.listenlive.eu/contactfr.m3u"
+}
