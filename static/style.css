@@ -76,6 +76,42 @@ header h2 span {
 	border-top: 2px solid #262626; 
 	z-index: 100; 
 	}
+	
+#inputbox { 
+	text-align: center;
+	margin: 20px; 
+	border: 1px solid #4D4D4D;
+	padding: 4px;
+	}
+	
+#inputbox h2 { 
+	text-align: left;
+	color: #E6E6E6;
+	font-size: 14px;
+	padding-left: 6px;
+	}
+	
+#input_url {
+	width: 99%;
+	font-size: 18px;
+    border: 2px solid #232425; 
+    padding: 15px;
+    background: #D9D9D9;
+    color: #1E90FF;
+    margin: 0 0 10px 0;
+}
+	
+#nav { 
+	text-align: right;
+	color: white;
+	font-size: 12px;
+	}
+	
+#info { 
+	margin: 20px; 
+	border: 1px solid #4D4D4D;
+	padding: 4px;
+	}
 
 .b_info {
 	float: right;
@@ -95,7 +131,8 @@ ul {
 	}
 
 li { 
-	border: 1px solid orange; 
+	border: none;
+	color: white;
 	}
 
 .bt_radio { 

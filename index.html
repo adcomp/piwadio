@@ -12,74 +12,131 @@
 <body>
 	<header>
 		<h1>PI<b>WADIO</b>  <small>[ Web Radio Player ]</small></h1>
-		<h2><small>[ STATE ]</small> <span id="state">stop</span> </div>
-		<h2><small>[ URL . ]</small> <span id="url"></span> </div>
+		<h2><small>[ URL . ]</small> <span id="url"></span> </h2>
+		<div id="nav">
+			<a id="nav_playlist">Playlist</a> |
+			<a id="nav_info">Info</a> | 
+			<a id="nav_url">Streaming URL</a>
+		</div>
 	</header>
 
 	<div class="main">
+		
+		<div id="inputbox">
+			<h2>Streaming URL</h2>
+			<form>
+			<input id="input_url" type="text"></input>
+			<br />
+			<button class="bt_radio" id="play_url">play</button>
+			</form>
+		</div>
+		
+		<div id="info">
+			<ul>
+				<li>Name : <span id="info_Name"></span></li>
+				<li>Genre : <span id="info_Genre"></span></li>
+				<li>Website : <span id="info_Website"></span></li>
+				<li>Bitrate : <span id="info_Bitrate"></span></li>
+			</ul>
+		</div>
+		
 		<div id="playlist">loading playlist ...</div>
+		
 	</div><!-- main -->
 	
 	<footer class="footer">
 
 		<div id="cmd">
-			<button id="bt_voldown" class="bt_cmd" onclick="ws.send('volume -1');">Vol-</button>
-			<button id="bt_voldown" class="bt_cmd" onclick="ws.send('volume 1');">Vol+</button>
-			<button id="bt_stop" class="bt_cmd" onclick="ws.send('stop');">Stop</button>
-			<button id="bt_pause" class="bt_cmd" onclick="ws.send('pause');">Pause</button>
+			<button id="bt_voldown" class="bt_cmd" onclick="send('volume','5%-');">Vol-</button>
+			<button id="bt_voldown" class="bt_cmd" onclick="send('volume','5%+');">Vol+</button>
+			<button id="bt_stop" class="bt_cmd" onclick="send('cmd','stop');">Stop</button>
+			<button id="bt_pause" class="bt_cmd" onclick="send('cmd','pause');">Pause</button>
 		</div>
-		
+
 	</footer>
 	
 <script>
+
+// WebSockets obj
 var ws = null;
 
-var playlist = { 
-	"Classic 21": "http://classic21.ice.rtbf.be/classic21-128.mp3.m3u",
-	"RTBF La Première": "http://lapremiere.ice.rtbf.be/lapremiere-128.mp3.m3u",
-	"Pure FM": "http://purefm.ice.rtbf.be/purefm-128.mp3.m3u",
-	"RTBF VivaCité": "http://vivacitecharleroi.ice.rtbf.be/vivacharleroi-128.mp3.m3u",
-	"Bel RTL": "http://www.listenlive.eu/belrtl.m3u",
-	"Fun Radio": "http://broadcast.infomaniak.ch/funradiobe-high.mp3.m3u",
-	"Mint": "http://www.listenlive.eu/mint.m3u",
-	"Nostalgie": "http://nostalgiepremium.ice.infomaniak.ch/nostalgiepremium-128.mp3.m3u",
-	"NRJ": "http://broadcast.infomaniak.net/nrjbe-high.mp3.m3u",
-	"Radio Contact": "http://www.listenlive.eu/contactfr.m3u"
-}
+// last data send from server
+var data = null;
 
+// radio playlist ( name: url )
+var playlist = {};
+
+// when page is loaded, get radio playlist and connect to server
 window.onload = init;
 
 function init() {
-	$('#bt_pause').hide();
-
-	$.getJSON( "static/playlist.json", function( data ) {
-	  var items = [];
-	  $.each( data, function( key, val ) {
-		html = '<div class="radio">';
-		html += '<button class="bt_radio" onclick="ws.send(\'loadlist ' + val + '\');">';
-		html += key;
-		html += '</button></div>';
-		items.push( html );
-	  });
-	 
-	  $("#playlist").html(items.join( "" ));
-	});
 	
-	connect();
-}
+	// hide pause button
+	$('#bt_pause').hide();
+	
+	// hide Info / URL
+	$('#info').hide();
+	$('#inputbox').hide();
+	
+	// events
+	$('#nav_playlist').click(
+		function() {
+			$('#playlist').show();
+			$('#info').hide();
+			$('#inputbox').hide();
+		}
+	);
+	$('#nav_info').click(
+		function() {
+			$('#info').show();
+			$('#playlist').hide();
+			$('#inputbox').hide();
+		}
+	);
+	$('#nav_url').click(
+		function() {
+			$('#inputbox').show();
+			$('#info').hide();
+			$('#playlist').hide();
+		}
+	);
 
-function connect() {
+	// get radio playlist from json file
+	$.getJSON( "static/playlist.json", function( data ) {
+		var radios = [];
+		// for each key, add a button
+		$.each( data, function( key, val ) {
+			playlist[key] = val;
+			html = '<div class="radio">';
+			html += '<button class="bt_radio" onclick="playRadio(\'' + key + '\');">';
+			html += key;
+			html += '</button></div>';
+			radios.push( html );
+		});
+	 
+	  $("#playlist").html(radios.join( "" ));
+	});
+
+	// get the full url
 	var url = window.location.href;
 	var arr = url.split('/');
+	// grab the host
 	var host = arr[2];
+
+	// WebSocket server connection
+	connect(host);
+}
+
+function connect(host) {
+
+	// connect to server
 	ws = new WebSocket("ws://" + host + "/piwardio");
 
 	ws.onmessage = function(evt) {
-		console.log(evt.data);
-		var data = JSON.parse(evt.data);
 		
-		$('#state').html(data.state);
-		
+		// data is json format
+		data = JSON.parse(evt.data);
+			
 		if (data.state == "stop") {
 			$('#bt_pause').hide();
 		}
@@ -88,10 +145,10 @@ function connect() {
 			$('#bt_pause').show();
 		}
 		
-		if (data.url) {
-			$('#url').html(data.url);
-		} else {
-			$('#url').html('-');
+		$('#url').html(data.url);
+		
+		for (var key in data.info) {
+			$('#info_'+key).html(data.info[key]);
 		}
 	};
 
@@ -102,6 +159,17 @@ function connect() {
 	ws.onopen = function(evt) {
 		console.log("WebSocket open ..")
 	};
+}
+
+function playRadio(name) {
+	cmd = JSON.stringify({"cmd": "loadlist", "url": playlist[name]});
+	ws.send(cmd);
+}
+
+function send(key, value) {
+	obj = {};
+	obj[key] = value;
+	ws.send(JSON.stringify(obj));
 }
 
 </script>

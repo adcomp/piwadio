@@ -2,51 +2,49 @@
 # -*- coding: utf-8 -*-
 
 # PIWADIO - Web Radio Player
-# Python WebSocket Server / Mplayer / HTML5 client
+# Python WebSocket Server / wrp / HTML5 client
 # by David Art [aka] adcomp <david.madbox@gmail.com>
 
 import json
 import os
 import sys
 import subprocess
+import select
 
 import tornado.httpserver
 import tornado.websocket
 import tornado.ioloop
 import tornado.web
 
-class MPlayer:
-	
-	last_cmd = ''
+VOLUME_DOWN = "amixer sset Master 5%+"
+VOLUME_UP = "amixer sset Master 5%-"
+
+class WebRadioPlayer:
+	""" A class to access a slave wrp process """
+
 	url = ''
 	state = 'stop'
-	volume = '100%'
+	info = {
+		"Name": '',
+		"Genre": '',
+		"Website": '',
+		"Bitrate": ''}
 
 	def __init__(self):
 
-		mplayer_cmd = ['mplayer', '-softvol', '-slave', '-quiet', '-idle', '-vo', 'null']
-		self.proc = subprocess.Popen(mplayer_cmd, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+		# start mplayer in slave mode
+		self.proc = subprocess.Popen(
+			['mplayer', '-slave', '-quiet', '-idle', '-vo', 'null', '-nolirc'], 
+			shell=False, 
+			stdin=subprocess.PIPE, 
+			stdout=subprocess.PIPE,
+			bufsize=1)
+		self._readlines()
 
 	def cmd(self, txt):
 
-		self.last_cmd = txt
-		
-		# set command to load url ( file or playlist )
-		if txt.startswith('loadfile') or txt.startswith('loadlist'):
-
-			if self.state == 'pause':
-				self.proc.stdin.write("pause\n")
-				
-			# stop before loading
-			self.proc.stdin.write("stop\n")
-			
-			# get the url
-			self.url = txt.split(' ')[1]
-			self.state = 'play'
-			print('URL = %s' % self.url)
-			
 		# play / pause
-		elif txt == 'pause':
+		if txt == 'pause':
 
 			if self.state == 'play':
 				self.state = 'pause'
@@ -62,22 +60,64 @@ class MPlayer:
 
 			self.state = 'stop'
 			self.url = ''
+			self.clearInfo()
 		
-		# send command to mplayer
+		# send command to wrp
 		self.proc.stdin.write("%s\n" % txt)
+		return self._readlines()
+
+	def loadUrl(self, cmd, url):
+		
+		if self.state == 'pause':
+			self.proc.stdin.write("pause\n")
+			
+		# stop before loading
+		self.proc.stdin.write("stop\n")
+		
+		# get the url
+		self.url = url
+		self.state = 'play'
+		self.clearInfo()
+		
+		print('\n[wrp] StreamURL = %s' % self.url)
+
+		# send command to wrp
+		self.proc.stdin.write("%s %s\n" % (cmd, url))
+		return self._readlines()
+
+	def clearInfo(self):
+		
+		self.info = {
+			"Name": '',
+			"Genre": '',
+			"Website": '',
+			"Bitrate": ''}
+			
+	def _readlines(self):
+
+		while any(select.select([self.proc.stdout.fileno()], [], [], 0.6)):
+			line = self.proc.stdout.readline()
+			line = line.strip()
+			linesplit = line.split(":")
+			if line and linesplit[0].strip() in self.info:
+				inf = ''.join(linesplit[1:])
+				self.info[linesplit[0].strip()] = inf.strip()
+				print("[wrp] %s : %s" % (linesplit[0],inf.strip()))
+
+		return 
 	
-	def readlines(self):
-		ret = []
-		return ret
+	def changeVolume(self, value):
+		cmd = ['amixer', 'sset', 'Master', value]
+		subprocess.Popen(cmd).communicate()
 		
 	def getData(self):
-		return {"state": self.state, "url": self.url.split('/')[-1], "volume": self.volume}
+		return {"state": self.state, "url": self.url.split('/')[-1], "info": self.info}
 
 class IndexHandler(tornado.web.RequestHandler):
 	
-    @tornado.web.asynchronous
-    def get(self):
-        self.render("index.html")
+	@tornado.web.asynchronous
+	def get(self):
+		self.render("index.html")
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
 
@@ -86,11 +126,11 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 	def open(self):
 
 		self.connected = True
-		print("new connection")
+		# print("new connection", self.request.remote_ip)
 		self.clients.append(self)
 		
 		# update client data
-		data = data = mplayer.getData()
+		data = data = wrp.getData()
 		self.write_message(json.dumps(data))
 
 	""" Tornado 4.0 introduced an, on by default, same origin check.
@@ -102,18 +142,32 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 
 	def on_message(self, message):
 		
-		# send command to mplayer
-		mplayer.cmd(message)
+		data = json.loads(message)
+
+		# mplayer command 
+		if "cmd" in data:
+			if data["cmd"] == "loadlist" or data["cmd"] == "loadfile":
+				wrp.loadUrl(data["cmd"], data["url"])
+			else:
+				wrp.cmd(data["cmd"])
+		
+		# volume change
+		elif "volume" in data:
+			wrp.changeVolume(data["volume"])
+		
+		else:
+			# later
+			pass
 		
 		# return data to all clients
-		data = mplayer.getData()
+		data = wrp.getData()
 		for client in self.clients:
 			client.write_message(json.dumps(data))
 
 	def on_close(self):
 		
 		self.connected = False
-		print("connection closed")
+		# print("[websocket] connection closed")
 		self.clients.remove(self)
 
 
@@ -124,14 +178,14 @@ application = tornado.web.Application([
 	(r'/piwardio', WebSocketHandler)
 ])
 
-mplayer = MPlayer()
+wrp = WebRadioPlayer()
 
 if __name__ == "__main__":
 	
 	http_server = tornado.httpserver.HTTPServer(application)
 	http_server.listen(8888)
-	print("Web Radio Player")
-	print("WebSocket Server start ..")
+	print("")
+	print("[piwadio] WebSocket Server start ..")
 	try:
 		tornado.ioloop.IOLoop.instance().start()
 	except KeyboardInterrupt:
