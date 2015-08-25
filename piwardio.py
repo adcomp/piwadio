@@ -173,9 +173,9 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 		# print("[websocket] connection closed")
 		self.clients.remove(self)
 
-def shutdown(mode="-h", timeout="now"):
+def shutdown(mode="h"):
 	print('[wrp] shutdown now ..\nBye :)')
-	cmd = "sudo shutdown --%s now" % mode
+	cmd = "sudo shutdown -%s now" % mode
 	subprocess.Popen(cmd.split()).communicate()
 	sys.exit(0)
 
