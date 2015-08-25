@@ -154,7 +154,10 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 		# volume change
 		elif "volume" in data:
 			wrp.changeVolume(data["volume"])
-		
+
+		elif "shutdown" in data:
+			shutdown(data["shutdown"])
+
 		else:
 			# later
 			pass
@@ -170,6 +173,11 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 		# print("[websocket] connection closed")
 		self.clients.remove(self)
 
+def shutdown(mode="-h", timeout="now"):
+	print('[wrp] shutdown now ..\nBye :)')
+	cmd = "sudo shutdown --%s now" % mode
+	subprocess.Popen(cmd.split()).communicate()
+	sys.exit(0)
 
 application = tornado.web.Application([
 	(r'/favicon.ico', tornado.web.StaticFileHandler, {'path': './static/favicon.png'}),
